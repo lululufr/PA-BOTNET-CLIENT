@@ -1,6 +1,4 @@
 use function_utils::subprocess_run;
-
-use std::process::Command;
 use ipnetwork::IpNetwork;
 
 extern crate regex;
@@ -46,7 +44,7 @@ pub(crate) fn scan(ips: Vec<Vec<String>>) {
             if up_or_not(i) {
                 println!("{} is UP", i)
             }else{
-                println!("{} is DOWN", i)
+                //println!("{} is DOWN", i)
             }
         }
     }
