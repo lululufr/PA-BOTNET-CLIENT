@@ -1,3 +1,9 @@
+
+struct atkOver {
+    attaque:bool,
+    discret: bool,
+}
+
 struct ScanEnvoiJson {
     cible: String,
     discret: bool,

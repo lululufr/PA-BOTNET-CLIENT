@@ -12,7 +12,6 @@ fn get_user_input() -> String {
     input.trim().to_string()
 }
 
-
 pub(crate) fn co() -> std::io::Result<TcpStream> {
     let stream =  TcpStream::connect("51.77.193.65:4242");
     println!("Connexion ETABLI");

