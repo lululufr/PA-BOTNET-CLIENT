@@ -13,3 +13,13 @@ struct ScanReceptionJson {
     cible: String,
     discret: bool,
 }
+
+struct DdosEnvoiJson {
+    attack: String,
+    id: Int,
+    arguments:{
+        ip: String,
+        time: u32,
+        advanced: bool,
+    }
+}
