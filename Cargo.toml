@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 ipnetwork = "0.20.0"
 regex = "1.4"
+cpal = "0.15.2"
+rodio = "0.17.3"

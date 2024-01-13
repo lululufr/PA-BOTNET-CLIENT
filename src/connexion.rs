@@ -40,7 +40,7 @@ pub(crate) fn reception(mut stream: TcpStream) {
 
                 let response = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
 
-                //println!("Received : {}", response);
+                    println!("Received : {}", response);
                     ordre_du_srv(response);
 
             }
