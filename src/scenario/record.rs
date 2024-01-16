@@ -1,56 +1,82 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::StreamConfig;
+use hound;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::fs::File;
-use std::io::Write;
 
-pub(crate) fn record() {
-    // Choisissez l'hôte par défaut
+pub(crate) fn record(){
     let host = cpal::default_host();
+    let device = host.default_input_device().expect("no input device available");
+    let mut supported_configs_range = device.supported_input_configs()
+        .expect("error while querying configs");
+    let supported_config = supported_configs_range.next()
+        .expect("no supported config?!")
+        .with_max_sample_rate();
+    let sample_format = supported_config.sample_format();
+    let config = supported_config.config();
 
-    // Sélectionnez le périphérique d'entrée (microphone) par défaut
-    let device = host.default_input_device().expect("Aucun périphérique d'entrée trouvé");
+    // Créer un fichier WAV pour l'enregistrement
+    let spec = hound::WavSpec {
+        channels: config.channels as u16,
+        sample_rate: config.sample_rate.0,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let samples: Arc<Mutex<Vec<i16>>> = Arc::new(Mutex::new(Vec::new()));
 
-    // Obtenez la configuration par défaut du périphérique
-    let config = device.default_input_config().expect("Erreur lors de l'obtention de la configuration");
-
-    // Créez un fichier pour enregistrer les données audio
-    let file = Arc::new(Mutex::new(File::create("C:\\Users\\jiull\\Downloads\\enregistrement_audio.wav")
-        .expect("Impossible de créer le fichier")));
-
-    // Clonez le fichier pour le partager avec le callback
-    let file_clone = file.clone();
-
-    // Créez un flux avec la configuration souhaitée et spécifiez la latence
-    let stream = device.build_input_stream(
-        &config.into(),
-        move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            // Ici, vous pouvez traiter ou enregistrer les données audio
-
-            // Verrouillez le fichier pour éviter les conflits d'accès concurrents
-            let mut file = file_clone.lock().unwrap();
-
-            // Écrivez les données audio dans le fichier
-            for &sample in data {
-                let sample_i16 = (sample * i16::max_value() as f32) as i16;
-                file.write_all(&sample_i16.to_le_bytes())
-                    .expect("Erreur lors de l'écriture des données dans le fichier");
-            }
+    let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+    let stream = match sample_format {
+        cpal::SampleFormat::F32 => {
+            let samples = Arc::clone(&samples);
+            device.build_input_stream(
+                &config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    let mut samples = samples.lock().unwrap();
+                    for &sample in data {
+                        let sample_int = (sample * i16::MAX as f32) as i16;
+                        samples.push(sample_int);
+                    }
+                },
+                err_fn,
+                None
+            )
         },
-        move |err| {
-            eprintln!("Erreur lors de la capture audio: {:?}", err);
+        cpal::SampleFormat::I16 => {
+            let samples = Arc::clone(&samples);
+            device.build_input_stream(
+                &config,
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    let mut samples = samples.lock().unwrap();
+                    samples.extend_from_slice(data);
+                },
+                err_fn,
+                None
+            )
         },
-        Some(Duration::from_secs(10)), // Spécifiez la latence (10 secondes dans cet exemple)
-    ).expect("Erreur lors de la création du flux");
-
-    // Démarrez le flux
-    stream.play().expect("Erreur lors du démarrage du flux");
-
-    // Attendez 10 secondes
-    std::thread::sleep(Duration::from_secs(10));
-
-    // Arrêtez le flux
-    stream.pause().expect("Erreur lors de l'arrêt du flux");
-    println!("Enregistrement terminé");
+        cpal::SampleFormat::U16 => {
+            let samples = Arc::clone(&samples);
+            device.build_input_stream(
+                &config,
+                move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                    let mut samples = samples.lock().unwrap();
+                    for &sample in data {
+                        let sample = sample as i16;
+                        samples.push(sample);
+                    }
+                },
+                err_fn,
+                None
+            )
+        },
+        _ => panic!("Format d'échantillonnage non pris en charge!"),
+    }.unwrap();
+    stream.play().unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(10));
+    drop(stream);
+    // Écrire les échantillons dans le fichier WAV
+    let samples = samples.lock().unwrap();
+    let mut writer = hound::WavWriter::create("enregistrement.wav", spec).unwrap();
+    for sample in samples.iter() {
+        writer.write_sample(*sample).unwrap();
+    }
+    writer.finalize().unwrap();
+    println!("Enregistrement terminé")
 }
