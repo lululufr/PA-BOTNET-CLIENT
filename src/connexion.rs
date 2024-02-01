@@ -1,6 +1,7 @@
 use std::{io, thread};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::mpsc;
 
 use crate::scenario::ordre_du_srv;
 
@@ -12,22 +13,25 @@ fn get_user_input() -> String {
     input.trim().to_string()
 }
 
-pub(crate) fn co() -> std::io::Result<TcpStream> {
-    let stream =  TcpStream::connect("51.77.193.65:4242");
+pub(crate) fn connexion() -> std::io::Result<TcpStream> {
+    let stream =  TcpStream::connect("127.0.0.1:4242");
     println!("Connexion ETABLI");
     return stream;
 }
 
-pub(crate) fn emission(mut stream: TcpStream){
+
+pub(crate) fn emission(mut stream: TcpStream, mut channel: mpsc::Receiver<Vec<u8>>){
     loop {
-        let message = get_user_input();
-        stream.write_all(message.as_bytes()).expect("Erreur lors de l'envoi du message");
+        let mut message = channel.recv().unwrap();
+        //if("stop-thread".eq(std::str::from_utf8(&mut message).unwrap())){
+        //    break;
+        //}
+        stream.write_all(&mut message).expect("Erreur lors de l'envoi du message");
     }
 }
 
 
-
-pub(crate) fn reception(mut stream: TcpStream) {
+pub(crate) fn reception(mut stream: TcpStream, mut channel: mpsc::Sender<Vec<u8>>) {
     let mut buffer = [0; 512];
 
     loop {
@@ -38,10 +42,11 @@ pub(crate) fn reception(mut stream: TcpStream) {
                     break;
                 }
 
-                let response = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+                //let response = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
 
                 //println!("Received : {}", response);
-                    ordre_du_srv(response);
+                    //ordre_du_srv(response);
+                channel.send(buffer[..bytes_read].to_vec()).unwrap();
 
             }
             Err(err) => {

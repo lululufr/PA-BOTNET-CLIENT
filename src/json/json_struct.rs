@@ -1,4 +1,9 @@
 
+
+
+
+
+
 struct atkOver {
     attaque:bool,
     discret: bool,
