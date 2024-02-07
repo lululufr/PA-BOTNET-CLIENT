@@ -20,3 +20,5 @@ hex-literal = "0.4.1"
 hex = "0.4.3"
 base64 = { version = "0.21.7", features = [] }
 generic-array = "0.14.7"
+machine-uid = "0.5.1"
+typenum = "1.17.0"

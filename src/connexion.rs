@@ -22,12 +22,21 @@ pub(crate) fn connexion() -> std::io::Result<TcpStream> {
 
 pub(crate) fn emission(mut stream: TcpStream, mut channel: mpsc::Receiver<Vec<u8>>){
     loop {
-        let mut message = channel.recv().unwrap();
-        //if("stop-thread".eq(std::str::from_utf8(&mut message).unwrap())){
-        //    break;
-        //}
-        stream.write_all(&mut message).expect("Erreur lors de l'envoi du message");
+        match channel.recv() {
+            Ok(mut message) => {
+                // Handle the received message
+                stream.write_all(&mut message).expect("Erreur lors de l'envoi du message");
+            }
+            Err(err) => {
+                eprintln!("Error receiving data from channel: {}", err);
+                // Handle the error more gracefully, or break out of the loop
+                break;
+            }
+        }
     }
+    //if("stop-thread".eq(std::str::from_utf8(&mut message).unwrap())){
+    //    break;
+    //}
 }
 
 
