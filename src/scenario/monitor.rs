@@ -6,6 +6,8 @@ use std::io::ErrorKind::WouldBlock;
 use std::thread;
 #[cfg(feature = "libraries_windows")]
 use std::time::Duration;
+#[cfg(feature = "libraries")]
+use xcap::Monitor;
 
 
 #[cfg(target_os = "linux")]
