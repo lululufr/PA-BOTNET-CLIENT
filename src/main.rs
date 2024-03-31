@@ -1,12 +1,19 @@
+
+
+
 mod connexion;
 
 mod function_utils;
 mod scenario;
 
+use std::borrow::Borrow;
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::thread;
 use std::str;
+use std::error::Error;
+// use object::Error;
+use String;
 use std::sync::mpsc;
 //use std::sync::mpsc::channel;
 
@@ -80,6 +87,42 @@ fn send_encrypted_data_to_server(sender:mpsc::Sender<Vec<u8>>,
     }
 }
 
+
+
+fn receive_encrypted_data_from_server(receiver:&mpsc::Receiver<Vec<u8>>,
+    symetric_key:GenericArray<u8, typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UTerm, typenum::bit::B1>, typenum::bit::B0>, typenum::bit::B0>, typenum::bit::B0>, typenum::bit::B0>>,
+    iv:GenericArray<u8, typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UInt<typenum::uint::UTerm, typenum::bit::B1>, typenum::bit::B0>, typenum::bit::B0>, typenum::bit::B0>, typenum::bit::B0>>)
+    -> String{
+    match receiver.recv() {
+        Ok(data) => {
+            println!("Data received successfully!");
+
+            println!("Data received : {:?}", data);
+
+            let mut bufff = [0u8; 94];
+            let decrypted_data = Aes128CbcDec::new(&symetric_key, &iv)
+                .decrypt_padded_b2b_mut::<Pkcs7>(&data, &mut bufff)
+                .unwrap_or_default();
+
+            match str::from_utf8(&decrypted_data) {
+                Ok(utf8_data) => utf8_data.to_string(),
+                Err(err) => {
+                    eprintln!("Error converting data to UTF-8: {:?}", err);
+                    // Handle the error more gracefully, return a default string for now
+                    String::new()
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!("Error while receiving data: {:?}", err);
+            // Handle the error more gracefully, return a default string for now
+            String::new()
+        }
+    }
+
+}
+
+
 fn main() -> io::Result<()> {
 
     // Connexion
@@ -128,6 +171,9 @@ fn main() -> io::Result<()> {
 
     let handshake_data = json_to_struct_handshake_stc(str::from_utf8(decrypted.as_slice()).unwrap().to_string());
 
+    let stealth_mode = handshake_data.stealth;
+    let multithread_mode = handshake_data.multithread;
+
     // Decode the base64 key
     let symetric_key;
     match general_purpose::STANDARD.decode(handshake_data.b64symetric.as_bytes()){
@@ -163,6 +209,22 @@ fn main() -> io::Result<()> {
 
     send_encrypted_data_to_server(sender.clone(), handshake_response, symetric_key, iv);
 
+    let thread_test = thread::spawn(move|| {
+        loop {
+            // println!("Message Recu : {}", std::str::from_utf8(receive_encrypted_data_from_server(receiver.borrow(), symetric_key, iv)).unwrap());
+            // match receive_encrypted_data_from_server(receiver.borrow(), symetric_key, iv){
+            //     Ok(data) => {
+            //         if let Ok(utf8_data) = std::str::from_utf8(&data) {
+            //             println!("Message Recu : {}", utf8_data);
+            //         } else {
+            //             eprintln!("Error converting data to UTF-8");
+            //         }
+            //     }
+            // }
+            println!("Message Recu : {}", receive_encrypted_data_from_server(receiver.borrow(), symetric_key, iv));
+        }
+    });
+
     loop {
         // Réception des ordres du serveur
         let mut input = String::new();
@@ -176,117 +238,118 @@ fn main() -> io::Result<()> {
             }
             Err(error) => println!("error: {error}"),
         }
+        // println!("Message Recu : {}", receive_encrypted_data_from_server(receiver.borrow(), symetric_key, iv));
 
     }
     return Ok(());
-    loop{
+    // loop{
 
-        let encrypted_data:Vec<u8>;
+    //     let encrypted_data:Vec<u8>;
 
-        match receiver.recv() {
-            Ok(received_data) => {
-                println!("Data received successfully!");
-                encrypted_data = received_data;
-            }
-            Err(err) => {
-                eprintln!("Error receiving data: {}", err);
-                // Handle the error more gracefully
-                encrypted_data = vec![];
-            }
-        }
-
-
-        let mut buf = [0u8; 48];
-        let data = Aes128CbcDec::new(&symetric_key, &iv)
-            .decrypt_padded_b2b_mut::<Pkcs7>(&encrypted_data, &mut buf)
-            .unwrap();
-
-        println!(">> data received from python : {}", str::from_utf8(&data).unwrap());
+    //     match receiver.recv() {
+    //         Ok(received_data) => {
+    //             println!("Data received successfully!");
+    //             encrypted_data = received_data;
+    //         }
+    //         Err(err) => {
+    //             eprintln!("Error receiving data: {}", err);
+    //             // Handle the error more gracefully
+    //             encrypted_data = vec![];
+    //         }
+    //     }
 
 
-        let mut msg = str::from_utf8(&data).unwrap();
+    //     let mut buf = [0u8; 48];
+    //     let data = Aes128CbcDec::new(&symetric_key, &iv)
+    //         .decrypt_padded_b2b_mut::<Pkcs7>(&encrypted_data, &mut buf)
+    //         .unwrap();
 
-        let rsp = format!("{}{}", msg, " - OK");
-
-
-        let data_to_send = rsp.as_bytes().to_vec();
-        let mut buf = [0u8; 48];
-        let encrypted_data = Aes128CbcEnc::new(&symetric_key, &iv)
-            .encrypt_padded_b2b_mut::<Pkcs7>(&data_to_send, &mut buf)
-            .unwrap();
-
-        match sender.send(encrypted_data.to_vec()) {
-            Ok(()) => {
-                println!("Data sent successfully!");
-            }
-            Err(err) => {
-                eprintln!("Error sending data: {}", err);
-                // Handle the error more gracefully
-            }
-        }
-    }
+    //     println!(">> data received from python : {}", str::from_utf8(&data).unwrap());
 
 
+    //     let mut msg = str::from_utf8(&data).unwrap();
+
+    //     let rsp = format!("{}{}", msg, " - OK");
 
 
-    let michel = "michel".as_bytes().to_vec();
-    let mut buf = [0u8; 48];
-    let ciphered_michel = Aes128CbcEnc::new(&symetric_key, &iv)
-        .encrypt_padded_b2b_mut::<Pkcs7>(&michel, &mut buf)
-        .unwrap();
+    //     let data_to_send = rsp.as_bytes().to_vec();
+    //     let mut buf = [0u8; 48];
+    //     let encrypted_data = Aes128CbcEnc::new(&symetric_key, &iv)
+    //         .encrypt_padded_b2b_mut::<Pkcs7>(&data_to_send, &mut buf)
+    //         .unwrap();
 
-    println!("sending encrypted michel : {:?}", ciphered_michel);
-
-    match sender.send(ciphered_michel.to_vec()) {
-        Ok(()) => {
-            println!("Data sent successfully!");
-        }
-        Err(err) => {
-            eprintln!("Error sending data: {}", err);
-            // Handle the error more gracefully
-        }
-    }
-
-
-    let encrypted_michel:Vec<u8>;
-
-    match receiver.recv() {
-        Ok(received_data) => {
-            println!("Data received successfully!");
-            encrypted_michel = received_data;
-        }
-        Err(err) => {
-            eprintln!("Error receiving data: {}", err);
-            // Handle the error more gracefully
-            encrypted_michel = vec![];
-        }
-    }
-
-    let mut buf = [0u8; 48];
-    let pt = Aes128CbcDec::new(&symetric_key, &iv)
-        .decrypt_padded_b2b_mut::<Pkcs7>(&encrypted_michel, &mut buf)
-        .unwrap();
-
-    println!("michel : {}", str::from_utf8(&pt).unwrap());
+    //     match sender.send(encrypted_data.to_vec()) {
+    //         Ok(()) => {
+    //             println!("Data sent successfully!");
+    //         }
+    //         Err(err) => {
+    //             eprintln!("Error sending data: {}", err);
+    //             // Handle the error more gracefully
+    //         }
+    //     }
+    // }
 
 
 
-    // arrêt du programme
+
+    // let michel = "michel".as_bytes().to_vec();
+    // let mut buf = [0u8; 48];
+    // let ciphered_michel = Aes128CbcEnc::new(&symetric_key, &iv)
+    //     .encrypt_padded_b2b_mut::<Pkcs7>(&michel, &mut buf)
+    //     .unwrap();
+
+    // println!("sending encrypted michel : {:?}", ciphered_michel);
+
+    // match sender.send(ciphered_michel.to_vec()) {
+    //     Ok(()) => {
+    //         println!("Data sent successfully!");
+    //     }
+    //     Err(err) => {
+    //         eprintln!("Error sending data: {}", err);
+    //         // Handle the error more gracefully
+    //     }
+    // }
 
 
-    thread_reception.join().expect("Thread reception erreur");
-    thread_emission.join().expect("Thread emission erreur");
+    // let encrypted_michel:Vec<u8>;
 
-    //switch case
+    // match receiver.recv() {
+    //     Ok(received_data) => {
+    //         println!("Data received successfully!");
+    //         encrypted_michel = received_data;
+    //     }
+    //     Err(err) => {
+    //         eprintln!("Error receiving data: {}", err);
+    //         // Handle the error more gracefully
+    //         encrypted_michel = vec![];
+    //     }
+    // }
 
-    println!("action : {}", handshake_data.action);
-    println!("b64symetric : {}", handshake_data.b64symetric);
-    println!("b64iv : {}", handshake_data.b64iv);
-    println!("multithread : {}", handshake_data.multithread);
-    println!("stealth : {}", handshake_data.stealth);
+    // let mut buf = [0u8; 48];
+    // let pt = Aes128CbcDec::new(&symetric_key, &iv)
+    //     .decrypt_padded_b2b_mut::<Pkcs7>(&encrypted_michel, &mut buf)
+    //     .unwrap();
+
+    // println!("michel : {}", str::from_utf8(&pt).unwrap());
 
 
 
-    Ok(())
+    // // arrêt du programme
+
+
+    // thread_reception.join().expect("Thread reception erreur");
+    // thread_emission.join().expect("Thread emission erreur");
+
+    // //switch case
+
+    // println!("action : {}", handshake_data.action);
+    // println!("b64symetric : {}", handshake_data.b64symetric);
+    // println!("b64iv : {}", handshake_data.b64iv);
+    // println!("multithread : {}", handshake_data.multithread);
+    // println!("stealth : {}", handshake_data.stealth);
+
+
+
+    // Ok(())
 
 }
