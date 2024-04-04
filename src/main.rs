@@ -1,6 +1,3 @@
-
-
-
 mod connexion;
 
 mod function_utils;
@@ -20,6 +17,19 @@ use std::sync::mpsc;
 use openssl::encrypt::{Encrypter, Decrypter};
 use openssl::rsa::{Rsa, Padding};
 use openssl::pkey::PKey;
+
+// use rsa::{RsaPublicKey, RsaPrivateKey, PublicKeyPemEncoding};
+use rsa::{RsaPublicKey, RsaPrivateKey, Pkcs1v15Encrypt};
+// use rsa::pkcs1::{EncodeRsaPublicKey, LineEnding};
+use rsa::pkcs1::{EncodeRsaPublicKey, EncodeRsaPrivateKey, LineEnding};
+use rsa::pkcs8::{EncodePublicKey};
+
+use rand::rngs::OsRng;
+use rsa_export::PemEncode;
+// use rsa::pkcs1::EncodeRsaPublicKey;
+use serde_json;
+
+
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use hex_literal::hex;
 use std::any::type_name;
@@ -34,7 +44,6 @@ use machine_uid::get;
 
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
-
 
 // JSON config handshake
 
@@ -144,32 +153,45 @@ fn main() -> io::Result<()> {
 
     // ========== HANDSHAKE ==========
 
-    // Generate a keypair
-    let rsa = Rsa::generate(2048).unwrap();
-    let keypair = PKey::from_rsa(rsa).unwrap();
+    let mut rng = OsRng;
+    let bits = 2048;
+    let private_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
+    let public_key = RsaPublicKey::from(&private_key);
 
-    let pub_key_pem: Vec<u8> = keypair.public_key_to_pem().unwrap();
-    //println!("Clé publique générée : {:?}", str::from_utf8(pub_key_pem.as_slice()).unwrap());
+    let pkcs1_encoded_public_pem = public_key.to_public_key_pem(LineEnding::LF).unwrap();
+    let pkcs1_encoded_private_pem = private_key.to_pkcs1_pem(LineEnding::LF).unwrap();
+
+    // println!("Public Key as Vec<u8>: {:?}", pkcs1_encoded_public_pem);
+    // println!("Private Key as Vec<u8>: {:?}", pkcs1_encoded_private_pem);
+
+    // sender.send(pkcs1_encoded_public_pem.as_bytes().to_vec()).unwrap();
+
+
+    // let encrypted_data = receiver.recv().unwrap();
+
+    // println!("Decrypted data: {:?}", str::from_utf8(&dec_data).unwrap());
+
+    // return Ok(());
+    //===========================================================
+
+
+    // Generate a keypair
+    // let rsa = Rsa::generate(2048).unwrap();
+    // let keypair = PKey::from_rsa(rsa).unwrap();
+
+    // let pub_key_pem: Vec<u8> = keypair.public_key_to_pem().unwrap();
+    // println!("Clé publique générée : {:?}", str::from_utf8(pub_key_pem.as_slice()).unwrap());
 
     // Envois de la clé publique au serveur python
-    sender.send(pub_key_pem).unwrap();
-
-    // Création du decrypter pour déchiffrer les données à l'aide de la clé privée
-    let mut decrypter = Decrypter::new(&keypair).unwrap();
-    decrypter.set_rsa_padding(Padding::PKCS1).unwrap();
+    sender.send(pkcs1_encoded_public_pem.as_bytes().to_vec()).unwrap();
 
     // Réception de la clé symétrique chiffrée
     let mut encrypted_hanshake_data = receiver.recv().unwrap();
 
     // Déchiffrement de la clé symétrique
-    let buffer_len = decrypter.decrypt_len(&mut encrypted_hanshake_data).unwrap();
-    let mut decrypted = vec![0; buffer_len];
-    let data_len = decrypter.decrypt(&mut encrypted_hanshake_data, &mut decrypted).unwrap();
-    decrypted.truncate(data_len);
+    let decrypted_data = private_key.decrypt(Pkcs1v15Encrypt, &encrypted_hanshake_data).unwrap();
 
-    //println!("received : {:?}", str::from_utf8(decrypted.as_slice()).unwrap());
-
-    let handshake_data = json_to_struct_handshake_stc(str::from_utf8(decrypted.as_slice()).unwrap().to_string());
+    let handshake_data = json_to_struct_handshake_stc(str::from_utf8(decrypted_data.as_slice()).unwrap().to_string());
 
     let stealth_mode = handshake_data.stealth;
     let multithread_mode = handshake_data.multithread;
