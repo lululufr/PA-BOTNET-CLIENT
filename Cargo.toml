@@ -12,7 +12,8 @@ regex = "1.4"
 serde_json = "1.0.111"
 object = { version = "0.32.2", features = [] }
 serde = { version = "1.0.194", features = ["derive"] }
-openssl = { version = "0.10", features = ["vendored"] }
+rsa = "0.9.6"
+rand = "0.8.5"
 
 aes = { version = "0.8.3", features = [] }
 cbc = "0.1.2"
