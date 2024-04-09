@@ -24,8 +24,20 @@ base64 = { version = "0.21.7", features = [] }
 generic-array = "0.14.7"
 machine-uid = "0.5.1"
 typenum = "1.17.0"
-hound = "3.5.1"
 write = "0.1.0"
 config = "0.13.4"
 
+# Features dependecies (Jiullian)
+xcap = { version = "0.0.4", optional = true}
+cpal = { version = "0.15.2", optional = true}
+hound = { version = "3.5.1", optional = true}
+rscam = { version = "0.5.5", optional = true}
+camera_capture = {version = "0.5.0" , optional = true}
+image = { version = "0.24.9", optional = true}
+scrap = { version = "0.5.0", optional = true}
 
+[features]
+libraries = ["dep:xcap", "dep:cpal", "dep:hound"]
+camera_linux = ["dep:rscam"]
+camera_windows = ["dep:camera_capture", "dep:image"]
+libraries_windows = ["dep:scrap"]

